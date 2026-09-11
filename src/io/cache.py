@@ -1,11 +1,14 @@
 """Caching utilities for historical data."""
 
 import hashlib
-import pickle
+import json
+import logging
 from pathlib import Path
 from typing import Optional
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 class CacheManager:
@@ -22,12 +25,12 @@ class CacheManager:
 
     def _cache_key(self, instrument: str, granularity: str, start: str, end: str) -> str:
         """Generate cache key from parameters."""
-        key_str = f"{instrument}_{granularity}_{start}_{end}"
+        key_str = json.dumps([instrument, granularity, start, end], sort_keys=True)
         return hashlib.md5(key_str.encode()).hexdigest()
 
     def _cache_path(self, cache_key: str) -> Path:
         """Get cache file path."""
-        return self.cache_dir / f"{cache_key}.pkl"
+        return self.cache_dir / f"{cache_key}.parquet"
 
     def get(
         self,
@@ -54,10 +57,31 @@ class CacheManager:
             return None
 
         try:
-            with open(cache_path, "rb") as f:
-                data = pickle.load(f)
+            data = pd.read_parquet(cache_path)
             return data
-        except Exception:
+        except FileNotFoundError:
+            logger.warning(
+                f"Cache file not found (may have been deleted): {cache_path}",
+                exc_info=True,
+            )
+            return None
+        except PermissionError as e:
+            logger.error(
+                f"Permission denied reading cache file: {cache_path}",
+                exc_info=True,
+            )
+            return None
+        except OSError as e:
+            logger.error(
+                f"OS error reading cache file: {cache_path}",
+                exc_info=True,
+            )
+            return None
+        except Exception as e:
+            logger.error(
+                f"Unexpected error reading cache file: {cache_path}",
+                exc_info=True,
+            )
             return None
 
     def save(
@@ -81,8 +105,20 @@ class CacheManager:
         cache_path = self._cache_path(cache_key)
 
         try:
-            with open(cache_path, "wb") as f:
-                pickle.dump(df, f)
+            df.to_parquet(cache_path, index=False)
+        except PermissionError as e:
+            logger.error(
+                f"Permission denied writing cache file: {cache_path}",
+                exc_info=True,
+            )
+        except OSError as e:
+            logger.error(
+                f"OS error writing cache file: {cache_path}",
+                exc_info=True,
+            )
         except Exception as e:
-            print(f"Warning: Failed to save cache: {e}")
+            logger.error(
+                f"Unexpected error writing cache file: {cache_path}",
+                exc_info=True,
+            )
 

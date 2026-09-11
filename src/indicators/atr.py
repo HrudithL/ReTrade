@@ -115,18 +115,35 @@ def get_daily_atr_for_date(
     # Calculate ATR series
     atr_series = daily_atr_from_daily_bars(historical, period=period)
 
+    # Get today's data - try exact match first, then find nearest available date
+    today_data = historical[historical[date_col].dt.date == target_date_only]
+    
+    if len(today_data) == 0:
+        # No exact match - find the most recent daily candle before or on target date
+        # This handles cases where OANDA daily candles don't have entries for every day
+        # (e.g., weekends, holidays, or different date assignments)
+        available_dates = historical[date_col].dt.date
+        matching_dates = available_dates[available_dates <= target_date_only]
+        
+        if len(matching_dates) == 0:
+            # No data available up to target date
+            return (0.0, 0.0)
+        
+        # Use the most recent available date
+        nearest_date = matching_dates.max()
+        today_data = historical[historical[date_col].dt.date == nearest_date]
+        
+        if len(today_data) == 0:
+            return (0.0, 0.0)
+
     # Get threshold (average of last 'period' ATR values)
     if len(atr_series) >= period:
         threshold = atr_series.tail(period).mean()
     else:
         threshold = atr_series.mean()
 
-    # Get today's ATR
-    today_data = historical[historical[date_col].dt.date == target_date_only]
-    if len(today_data) == 0:
-        return (0.0, 0.0)
-
-    # Calculate ATR up to today
+    # Calculate ATR up to today (use the last value in the series, which corresponds
+    # to the most recent data point in historical data)
     today_atr = atr_series.iloc[-1] if len(atr_series) > 0 else 0.0
 
     return (today_atr, threshold)

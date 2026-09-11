@@ -53,9 +53,8 @@ def test_entry_signals_long():
     assert signal is not None
     assert signal["entry_price"] == 101.0
     assert signal["entry_time"].hour == 9
-    assert signal["entry_time"].minute == 40  # First break at 09:40
-
-
+    assert signal["entry_time"].minute == 45  # First break at 09:45 (high=101.5 > 101.0)
+    
 def test_entry_signals_short():
     """Test short entry signal detection."""
     df_after = pd.DataFrame(

@@ -1,7 +1,7 @@
 """Strategy filters for trade selection."""
 
 from typing import Optional
-
+import pandas as pd
 
 def atr_filter(daily_atr: float, threshold_atr: float, multiplier: float = 1.2) -> bool:
     """ATR-based session filter.
@@ -33,7 +33,16 @@ def volume_filter(df_day: pd.DataFrame, min_volume: Optional[float] = None) -> b
     if min_volume is None:
         return True
 
-    avg_volume = df_day["volume"].mean()
+    if df_day.empty:
+        return False
+
+    if "volume" not in df_day.columns:
+        return False
+
+    avg_volume = df_day["volume"].dropna().mean()
+    if pd.isna(avg_volume):
+        return False
+
     return avg_volume >= min_volume
 
 

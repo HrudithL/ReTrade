@@ -38,8 +38,7 @@ def test_atr():
     atr_values = atr(df, period=14)
     assert len(atr_values) == len(df)
     assert atr_values.iloc[-1] > 0  # Should have positive ATR
-    assert atr_values.iloc[0] == atr_values.iloc[0]  # First value should be valid
-
+    assert not pd.isna(atr_values.iloc[0])  # First value should be valid (not NaN)
 
 def test_daily_atr_from_daily_bars():
     """Test ATR calculation from daily bars."""
@@ -101,3 +100,39 @@ def test_get_daily_atr_for_date():
     assert today_atr > 0
     assert threshold > 0
 
+
+def test_get_daily_atr_for_date_missing_date():
+    """Test getting ATR when target date doesn't exist - should find nearest available date."""
+    # Create daily data with gaps (simulating OANDA daily candles that skip weekends)
+    # Create 45 consecutive days to ensure we have enough weekdays (need at least 20 for period)
+    dates = pd.date_range("2024-01-01", periods=45, freq="D", tz="America/New_York")
+    # Filter to only weekdays (Monday=0, Friday=4)
+    weekday_dates = [d for d in dates if d.weekday() < 5]
+    
+    df_daily = pd.DataFrame(
+        {
+            "time_ny": weekday_dates,
+            "high": [100.5 + i * 0.1 for i in range(len(weekday_dates))],
+            "low": [99.5 + i * 0.1 for i in range(len(weekday_dates))],
+            "close": [100.0 + i * 0.1 for i in range(len(weekday_dates))],
+        }
+    )
+
+    # Try to get ATR for a date that doesn't exist in the data (e.g., a weekend)
+    # Feb 3, 2024 is a Saturday, so it won't be in weekday_dates
+    # Should find the nearest available date (Friday Feb 2)
+    # We have enough weekdays before this date (Jan 1 to Feb 2 = ~24 weekdays)
+    target_date = pd.Timestamp("2024-02-03", tz="America/New_York")  # Saturday
+    today_atr, threshold = get_daily_atr_for_date(df_daily, target_date, period=20)
+
+    # Should still return valid ATR values by finding nearest date
+    assert today_atr > 0
+    assert threshold > 0
+    
+    # Test with a date that has no data before it
+    early_date = pd.Timestamp("2023-12-01", tz="America/New_York")
+    today_atr_early, threshold_early = get_daily_atr_for_date(df_daily, early_date, period=20)
+    
+    # Should return (0.0, 0.0) because no data available
+    assert today_atr_early == 0.0
+    assert threshold_early == 0.0

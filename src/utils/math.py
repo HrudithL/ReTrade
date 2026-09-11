@@ -21,17 +21,15 @@ def apply_slippage(price: float, side: Literal["long", "short"], slippage_bps: f
         return price * (1 - slippage_pct)  # Sell at lower price
 
 
-def apply_commission(price: float, side: Literal["long", "short"], commission_bps: float) -> float:
-    """Apply commission to a fill price.
+def apply_commission(price: float, commission_bps: float) -> float:
+    """Calculate commission amount for a fill price.
 
     Args:
         price: Base price
-        side: 'long' or 'short'
-        commission_bps: Commission in basis points
+        commission_bps: Commission in basis points (1 bp = 0.01%)
 
     Returns:
-        Commission amount (not adjusted price)
+        Commission amount
     """
-    commission_pct = commission_bps / 10000.0
-    return price * commission_pct
+    return price * (commission_bps / 10000.0)
 

@@ -19,7 +19,9 @@ def test_to_ny():
 
     df_ny = to_ny(df)
     assert "time_ny" in df_ny.columns
-    assert df_ny["time_ny"].dt.tz.zone == "America/New_York"
+    # Check timezone using string representation (works for both ZoneInfo and pytz)
+    tz_str = str(df_ny["time_ny"].dt.tz)
+    assert "America/New_York" in tz_str or "New_York" in tz_str
 
 
 def test_session_date():
